@@ -1,0 +1,95 @@
+---
+title: "Fish Assemblages"
+format: html
+editor: visual
+author: Joaquin Sandoval 
+date: 10/31/2025
+---
+
+```{r, output = FALSE}
+library(tidyverse)
+library(here)
+library(dplyr)
+library(patchwork)
+```
+
+```{r, output = FALSE}
+# Read in data 
+fish <- read_csv(here("data", "MCR_LTER_Annual_Fish_Survey_20250324.csv"))
+```
+
+```{r}
+# groupby both fish category and year, find total number of fish for that category 
+
+fish_by_type <- fish |> 
+  group_by(Fine_Trophic, Year) |>
+  filter(Habitat == "Backreef") |> 
+  filter(Fine_Trophic != "na") |>
+  summarise(n = n()) |> 
+  mutate(total_number = n) 
+```
+
+```{r}
+groups_through_years_plot <- ggplot(fish_by_type, 
+       aes(x = Year, 
+           y = total_number, 
+           color = Fine_Trophic)) + 
+  geom_line() + 
+  labs(y = "Total Number of Fish", 
+       title = "Change in Backreef Fish Abundance (2006-2025)", 
+       color = "Fish Type")
+  
+```
+
+```{r, message = FALSE}
+fish_2006 <- fish |> 
+  group_by(Fine_Trophic, Habitat) |> 
+  filter(Fine_Trophic != "na")|> 
+  filter(Year == "2006") |> 
+  filter(Habitat == "Backreef") |> 
+  summarise(n = n()) |> 
+  mutate(total_number = n) |> 
+  arrange(desc(total_number))
+          
+          
+fish_2006_plot <- ggplot(fish_2006, aes(x = total_number, 
+                      y = reorder(Fine_Trophic, +total_number), 
+                      fill = Fine_Trophic)) +
+  geom_col() + 
+  ylab(" ") + 
+  xlab("Count") + 
+  labs(title = " 2006 Backreef Fish Abundance by Group", 
+       x = "Count") +
+  theme(legend.position = "none")
+
+```
+
+```{r,  message = FALSE}
+fish_2024 <- fish |> 
+  group_by(Fine_Trophic, Habitat) |> 
+  filter(Fine_Trophic != "na")|> 
+  filter(Year == "2024") |> 
+  filter(Habitat == "Backreef") |> 
+  summarise(n = n()) |> 
+  mutate(total_number = n) |> 
+  arrange(desc(total_number))
+
+fish_2024_plot <- ggplot(fish_2024, aes(x = total_number, 
+                      y = reorder(Fine_Trophic, +total_number), 
+                      fill = Fine_Trophic)) +
+  geom_col() + 
+  ylab(" ") + 
+  xlab("Count") + 
+  labs(title = " 2024 Backreef Fish Abundance by Group", 
+       x = "Count") +
+  theme(legend.position = "none")
+```
+
+```{r}
+
+groups_through_years_plot
+
+fish_2006_plot / fish_2024_plot
+
+```
+This above figures show how the abundance of each fish type (entire fish assemblage) changes through time in the backreef zone. For the first visualization, I thought a line plot would be more appropriate than a scatterplot. It is a bit busy so I may filter for less groups (i.e groups that feed or interact with coral/skeletons/macroalgae). The second figure is a combination of bar plots that show the abundance of each fish group in the first year of surveying (2006) and the last sampling year (2024).
