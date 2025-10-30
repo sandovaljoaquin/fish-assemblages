@@ -18,7 +18,7 @@ library(patchwork)
 fish <- read_csv(here("data", "MCR_LTER_Annual_Fish_Survey_20250324.csv"))
 ```
 
-```{r}
+```{r, message = FALSE}
 # groupby both fish category and year, find total number of fish for that category 
 
 fish_by_type <- fish |> 
