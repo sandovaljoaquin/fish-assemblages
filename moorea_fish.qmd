@@ -9,25 +9,22 @@ date: 10/31/2025
 ```{r, output = FALSE}
 library(tidyverse)
 library(here)
+library(janitor)
 library(dplyr)
 library(patchwork)
+library(betareg)
 ```
 
 ```{r, output = FALSE}
 # Read in data 
-fish <- read_csv(here("data", "MCR_LTER_Annual_Fish_Survey_20250324.csv"))
+fish <- read_csv(here("data", "MCR_LTER_Annual_Fish_Survey_20250324.csv")) |> 
+  janitor::clean_names()
+
+coral_cover <- read_csv(here("data", "MCR_LTER_Coral_Cover_Backreef_Long_20250429.csv")) |> 
+  janitor::clean_names()
 ```
 
-```{r, message = FALSE}
-# groupby both fish category and year, find total number of fish for that category 
 
-fish_by_type <- fish |> 
-  group_by(Fine_Trophic, Year) |>
-  filter(Habitat == "Backreef") |> 
-  filter(Fine_Trophic != "na") |>
-  summarise(n = n()) |> 
-  mutate(total_number = n) 
-```
 
 ```{r}
 groups_through_years_plot <- ggplot(fish_by_type, 
@@ -93,3 +90,58 @@ fish_2006_plot / fish_2024_plot
 
 ```
 This above figures show how the abundance of each fish type (entire fish assemblage) changes through time in the backreef zone. For the first visualization, I thought a line plot would be more appropriate than a scatterplot. It is a bit busy so I may filter for less groups (i.e groups that feed or interact with coral/skeletons/macroalgae). The second figure is a combination of bar plots that show the abundance of each fish group in the first year of surveying (2006) and the last sampling year (2024).
+
+
+```{r}
+
+coral_cover <- coral_cover |> 
+  filter(benthic_category == "coral") |> 
+  group_by(year, site) |> 
+  summarise(mean_site_coral_cover = mean(percent_cover)) 
+
+
+```
+
+```{r, message = FALSE}
+# groupby both fish category and year, find total number of fish for that category 
+
+corallivore <- fish |> 
+  filter(habitat == "Backreef") |> 
+  group_by(year, site ) |> 
+  summarise(proportion_corallivore = mean(fine_trophic == "Corallivore", na.rm = TRUE)) 
+
+```
+
+```{r}
+full_data_frame <- left_join(coral_cover, corallivore)
+
+ggplot(full_data_frame, 
+       aes(x = proportion_corallivore, 
+           y = mean_site_coral_cover, 
+           color = year)) + 
+  geom_point() + 
+  facet_wrap("site")
+```
+
+
+```{r}
+model <- betareg(
+  proportion_corallivore ~ mean_site_coral_cover + site + year,
+  data = full_data_frame,
+  link = "logit"
+)
+summary(model)
+```
+
+```{r}
+pred_grid <- expand_grid(proportion_corallivore = seq(0,1, by = 0.01), 
+                         site_coral_cover = seq(0,1, by = 0.01))
+
+pred_grid <- pred_grid |> 
+mutate(expected = predict(object = model, 
+                            newdata = pred_grid, 
+                            type = "response"))
+
+
+```
+
