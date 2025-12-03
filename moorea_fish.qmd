@@ -24,13 +24,17 @@ coral_cover <- read_csv(here("data", "MCR_LTER_Coral_Cover_Backreef_Long_2025042
   janitor::clean_names()
 ```
 
-
-
 ```{r}
-groups_through_years_plot <- ggplot(fish_by_type, 
-       aes(x = Year, 
+fish_through_years <- fish |> 
+  group_by(year, fine_trophic) |> 
+  summarise(n = n()) |> 
+  mutate(total_number = n())
+
+
+groups_through_years_plot <- ggplot(fish_through_years, 
+       aes(x = year, 
            y = total_number, 
-           color = Fine_Trophic)) + 
+           color = fine_trophic)) + 
   geom_line() + 
   labs(y = "Total Number of Fish", 
        title = "Change in Backreef Fish Abundance (2006-2025)", 
@@ -40,18 +44,18 @@ groups_through_years_plot <- ggplot(fish_by_type,
 
 ```{r, message = FALSE}
 fish_2006 <- fish |> 
-  group_by(Fine_Trophic, Habitat) |> 
-  filter(Fine_Trophic != "na")|> 
-  filter(Year == "2006") |> 
-  filter(Habitat == "Backreef") |> 
+  group_by(fine_trophic, habitat) |> 
+  filter(fine_trophic != "na")|> 
+  filter(year == "2006") |> 
+  filter(habitat == "Backreef") |> 
   summarise(n = n()) |> 
   mutate(total_number = n) |> 
   arrange(desc(total_number))
           
           
 fish_2006_plot <- ggplot(fish_2006, aes(x = total_number, 
-                      y = reorder(Fine_Trophic, +total_number), 
-                      fill = Fine_Trophic)) +
+                      y = reorder(fine_trophic, +total_number), 
+                      fill = fine_trophic)) +
   geom_col() + 
   ylab(" ") + 
   xlab("Count") + 
@@ -63,17 +67,17 @@ fish_2006_plot <- ggplot(fish_2006, aes(x = total_number,
 
 ```{r,  message = FALSE}
 fish_2024 <- fish |> 
-  group_by(Fine_Trophic, Habitat) |> 
-  filter(Fine_Trophic != "na")|> 
-  filter(Year == "2024") |> 
-  filter(Habitat == "Backreef") |> 
+  group_by(fine_trophic, habitat) |> 
+  filter(fine_trophic != "na")|> 
+  filter(year == "2024") |> 
+  filter(habitat == "Backreef") |> 
   summarise(n = n()) |> 
   mutate(total_number = n) |> 
   arrange(desc(total_number))
 
 fish_2024_plot <- ggplot(fish_2024, aes(x = total_number, 
-                      y = reorder(Fine_Trophic, +total_number), 
-                      fill = Fine_Trophic)) +
+                      y = reorder(fine_trophic, +total_number), 
+                      fill = fine_trophic)) +
   geom_col() + 
   ylab(" ") + 
   xlab("Count") + 
@@ -83,14 +87,12 @@ fish_2024_plot <- ggplot(fish_2024, aes(x = total_number,
 ```
 
 ```{r}
-
 groups_through_years_plot
 
 fish_2006_plot / fish_2024_plot
-
 ```
-This above figures show how the abundance of each fish type (entire fish assemblage) changes through time in the backreef zone. For the first visualization, I thought a line plot would be more appropriate than a scatterplot. It is a bit busy so I may filter for less groups (i.e groups that feed or interact with coral/skeletons/macroalgae). The second figure is a combination of bar plots that show the abundance of each fish group in the first year of surveying (2006) and the last sampling year (2024).
 
+This above figures show how the abundance of each fish type (entire fish assemblage) changes through time in the backreef zone. For the first visualization, I thought a line plot would be more appropriate than a scatterplot. It is a bit busy so I may filter for less groups (i.e groups that feed or interact with coral/skeletons/macroalgae). The second figure is a combination of bar plots that show the abundance of each fish group in the first year of surveying (2006) and the last sampling year (2024).
 
 ```{r}
 
@@ -115,18 +117,21 @@ corallivore <- fish |>
 ```{r}
 full_data_frame <- left_join(coral_cover, corallivore)
 
+full_data_frame <- full_data_frame |> 
+  mutate(site_number = (str_sub(site, 6))) |> 
+  mutate(site_number = as.numeric(site_number))
+
 ggplot(full_data_frame, 
-       aes(x = proportion_corallivore, 
-           y = mean_site_coral_cover, 
+       aes(x = mean_site_coral_cover, 
+           y = proportion_corallivore, 
            color = year)) + 
   geom_point() + 
   facet_wrap("site")
 ```
 
-
 ```{r}
 model <- betareg(
-  proportion_corallivore ~ mean_site_coral_cover + site + year,
+  proportion_corallivore ~ mean_site_coral_cover + site_number + year,
   data = full_data_frame,
   link = "logit"
 )
@@ -134,14 +139,18 @@ summary(model)
 ```
 
 ```{r}
-pred_grid <- expand_grid(proportion_corallivore = seq(0,1, by = 0.01), 
-                         site_coral_cover = seq(0,1, by = 0.01))
+pred_grid <- expand_grid(mean_site_coral_cover = seq(0,1, by = 0.01)) |> 
+  mutate(site_number = mean(full_data_frame$site_number, na.rm = TRUE), 
+         year = mean(full_data_frame$year, na.rm = TRUE)) 
 
 pred_grid <- pred_grid |> 
-mutate(expected = predict(object = model, 
+mutate(proportion_corallivore = predict(object = model, 
                             newdata = pred_grid, 
                             type = "response"))
 
 
-```
+betareg(proportion_corallivore ~ mean_site_coral_cover + site_number + year,
+        data = pred_grid, 
+        link = "logit")
 
+```
