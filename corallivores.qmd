@@ -46,6 +46,7 @@ coral_cover <- read_csv(here("data", "MCR_LTER_Coral_Cover_Backreef_Long_2025042
 ```{r}
 fish_through_years <- fish |> 
   group_by(year, fine_trophic) |> 
+  filter(!fine_trophic %in% c("Sediment Sucker", "Planktivore_exclusively", "na")) |> 
   summarise(n = n()) |> 
   mutate(total_number = n)
 
@@ -69,7 +70,7 @@ corallivores_through_years <- fish |>
 corallivore_plot <- ggplot(corallivores_through_years, 
        aes(x = year, 
            y = total_number)) + 
-  geom_line() + 
+  geom_line(color = "lightblue") + 
   labs(x = "Year", 
     y = "Total Number of Fish", 
     title = "Change in Backreef Corallivore Abundance (2006-2025)")
@@ -148,7 +149,7 @@ $$
 The response variable is a proportion between 0 and 1. We want to investigate how that changes with the predictor variables. 
 
 μ: the mean of beta distribution. 
-ϕ: precision paramter. The larger the ϕ, less variance in distribution. The inverse is true: a low ϕ, yields more variance in distribution. 
+ϕ: precision parameter. The larger the ϕ, less variance in distribution. The inverse is true: a low ϕ, yields more variance in distribution. 
 
 Because μ needs to be between 0 and 1, a transformation using the logit link is necessary to convert values to that range. 
 
@@ -226,10 +227,11 @@ ggplot(full_data_frame,
        y = "Proportion Corallivore", 
        color = "Year")
 ```
-
+** Need to decide to use betareg() or glmmTMB()** 
+- Having issues generating CI. Manually retrieve SE values? Only possible with glmmTMB() so far.
 
 ```{r}
-# Fit beta regression model to data 
+# Fit beta regression model to data using betareg()
 
 model <- betareg(
   proportion_corallivore ~ mean_site_coral_cover + site_number + year,
@@ -254,23 +256,53 @@ mutate(proportion_corallivore = predict(object = model,
 ```
 
 ```{r}
-# Generate CI using glmmTMB
+# # Fit beta regression model to data using glmmTMB()
 
-corallivore_model <- glmmTMB(proportion_corallivore ~ mean_site_coral_cover + site_number + year,,
+corallivore_model <- glmmTMB(proportion_corallivore ~ mean_site_coral_cover + site_number + year,
   data = full_data_frame,
   family = beta_family(link = "logit"))
-summary(corallivore_model)
+
+corallivore_model_summary <- summary(corallivore_model)
+
+corallivore_model_summary$coefficients$cond
+```
+
+```{r}
+# Generate Confidence Interval
+
+B0 = corallivore_model_summary$coefficients$cond[1]
+B1 = corallivore_model_summary$coefficients$cond[2]
+B2 =  corallivore_model_summary$coefficients$cond[3]
+B3 = corallivore_model_summary$coefficients$cond[4]
+
+se_intercept <- corallivore_model_summary$coefficients$cond[5]
+se_mean_site_coral_cover <- corallivore_model_summary$coefficients$cond[6]
+se_site_number<- corallivore_model_summary$coefficients$cond[7]
+se_year <- corallivore_model_summary$coefficients$cond[8]
+
+
+B0_upper= B0+1.96*se_intercept
+B0_lower=B0-1.96*se_intercept
+
+B1_upper= B1+1.96*se_mean_site_coral_cover
+B1_lower=B1-1.96*se_mean_site_coral_cover 
+
+B2_upper= B2+1.96*se_site_number
+B2_lower=B2+1.96*se_site_number
+
+B3_upper= B3+1.96*se_year
+B3_lower=B3+1.96*se_year 
 
 ```
 
 
 ```{r}
-# Plot betaregression with CIs 
+# Plot betaregression with CIs - pending 
 
 ggplot(pred_grid, 
        aes(x = mean_site_coral_cover, 
            y = proportion_corallivore)) + 
-  geom_line() + 
+  geom_line(color = "lightblue") + 
   labs(x = "Mean Site Coral Cover", 
        y = "Proportion Corallivore")
 ```
