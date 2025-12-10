@@ -1,12 +1,16 @@
 ---
-title: "Corallivores"
+title: "Mo'orea Corallivores"
 format: html
+embed-resources: true
+standalone: true 
+toc: true
+code-fold: true
 editor: visual
 author: Joaquin Sandoval 
-date: 12/04/2025
+date: 12/10/2025
 ---
 
-```{r, output = FALSE, warning = FALSE}
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(here)
 library(janitor)
@@ -18,19 +22,20 @@ theme_set(theme_classic(12))
 set.seed(42)
 ```
 
-```{r}
+```{r, echo = FALSE, fig.cap = "Juvenile *Chaetodon reticulatus*. Image courtesy of Keoki Stender"}
+
 knitr::include_graphics("corallivore.png")
 ```
 
 ## Is there a relationship between decreasing coral cover and corallivore abundance in Backreef sites around Mo'orea, French Polynesia? 
 
-Coral reefs around the islands of Mo'orea are threatened by a variety of stressors such as cyclone activity and the outbreak of predatory sea stars (Acanthaster planci) that feed on coral tissue. As a response to these stressors, many locations around the island have undergone phase shifts in their benthic composition that involves the transformation of coral dominated communities to macroalgae dominated communities. In particular, the backreefs have been heavily transformed by the presence of Turbinaria, a well defended and persistent algae. I was interested if the resulting fish communities have changed as a result of this, particularly the abundance of Corallivores which feed primarily on scleractinian corals.
+Coral reefs around the islands of Mo'orea are threatened by a variety of stressors such as cyclone activity and the outbreak of predatory sea stars (*Acanthaster planci*) that feed on coral tissue. As a response to these  stressors and anthropogenic stressors, many locations around the island have undergone phase shifts in their benthic composition that involves the transformation of coral dominated communities to macroalgae dominated communities. In particular, the backreefs have been heavily transformed by the presence of *Turbinaria*, a well defended and persistent algae. I am interested if the resulting fish communities have changed as a result of this, particularly the abundance of Corallivores which feed primarily on scleractinian corals. In the following analysis, I will assess the impact of changing coral cover on corallivore populations. 
 
-The following analyses involve two datasets, both from the Mo'orea Coral Reef Long Term Ecological Research.
+The following analysis involves two datasets, both from the Mo'orea Coral Reef Long Term Ecological Research site.
 
-`fish` : describe the species abundance and estimated size distributions (total body length to the greatest precision possible) of fishes surveyed as part of MCR LTER's annual reef fish monitoring program. This dataset will be filtered to Backreef sites and for the fine trophic level of Corallivore.
+`fish` : describe the species abundance and estimated size distributions (total body length to the greatest precision possible) of fishes surveyed as part of MCR LTER's annual reef fish monitoring program. This dataset will be filtered to Backreef sites and fine trophic level of Corallivore.
 
-`coral_cover` : describe the percentage cover of all stony corals (Scleractinia, pooled among genera) and other major groups analyzed from 0.5 x 0.5 m photographic quadrats at the Backreef habitat at the Moorea Coral Reef LTER, French Polynesia.
+`coral_cover` : describe the percentage cover of all stony corals (Scleractinia, pooled among genera) and other major groups analyzed from 0.5 x 0.5 m photographic quadrats at the Backreef habitat at the Moorea Coral Reef LTER, French Polynesia. 
 
 ```{r, output = FALSE, message = FALSE}
 # Read in fish and coral data 
@@ -41,48 +46,7 @@ coral_cover <- read_csv(here("data", "MCR_LTER_Coral_Cover_Backreef_Long_2025042
   janitor::clean_names()
 ```
 
-## Change in Backreef Fish Community through time and change in Corallivore abundance through time 
-
-```{r}
-fish_through_years <- fish |> 
-  group_by(year, fine_trophic) |> 
-  filter(!fine_trophic %in% c("Sediment Sucker", "Planktivore_exclusively", "na")) |> 
-  summarise(n = n()) |> 
-  mutate(total_number = n)
-
-groups_through_years_plot <- ggplot(fish_through_years, 
-       aes(x = year, 
-           y = total_number, 
-           color = fine_trophic)) + 
-  geom_line() + 
-  labs(x = "Year", 
-       y = "Total Number of Fish", 
-       title = "Change in Backreef Fish Abundance (2006-2025)", 
-       color = "Fish Type")
-
-corallivores_through_years <- fish |> 
-  group_by(year) |> 
-  filter(habitat == "Backreef") |> 
-  filter(fine_trophic == "Corallivore") |> 
-  summarise(n = n()) |> 
-  mutate(total_number = n)
-  
-corallivore_plot <- ggplot(corallivores_through_years, 
-       aes(x = year, 
-           y = total_number)) + 
-  geom_line(color = "lightblue") + 
-  labs(x = "Year", 
-    y = "Total Number of Fish", 
-    title = "Change in Backreef Corallivore Abundance (2006-2025)")
-
-```
-
-```{r}
-groups_through_years_plot 
-corallivore_plot
-```
-## Total Counts of each trophic level in 2006 and 2024.
-Corallivores dropped from 3rd most abundant group in first year of survey to 6th most abundant group in the last sampling year.  
+## Total Counts of Each Fine Trophic Level Group in 2006 and 2024.
 
 ```{r, message = FALSE}
 fish_2006 <- fish |> 
@@ -105,9 +69,6 @@ fish_2006_plot <- ggplot(fish_2006, aes(x = total_number,
        x = "Count") +
   theme(legend.position = "none")
 
-```
-
-```{r,  message = FALSE}
 fish_2024 <- fish |> 
   group_by(fine_trophic, habitat) |> 
   filter(fine_trophic != "na")|> 
@@ -126,14 +87,38 @@ fish_2024_plot <- ggplot(fish_2024, aes(x = total_number,
   labs(title = " 2024 Backreef Fish Abundance by Group", 
        x = "Count") +
   theme(legend.position = "none")
+
 ```
 
-```{r}
-fish_2006_plot
+```{r, echo = FALSE}
+fish_2006_plot 
 fish_2024_plot
 ```
+Corallivores fell from the third‑most abundant group in the first survey year (202 individuals) to the sixth‑most abundant group in the most recent sampling year (79 individuals) at the LTER Backreef sites.
+
+## Change in Corallivore Abundance through time 
 
 ```{r}
+corallivores_through_years <- fish |> 
+  group_by(year) |> 
+  filter(habitat == "Backreef") |> 
+  filter(fine_trophic == "Corallivore") |> 
+  summarise(n = n()) |> 
+  mutate(total_number = n)
+  
+corallivore_plot <- ggplot(corallivores_through_years, 
+       aes(x = year, 
+           y = total_number)) + 
+  geom_line(color = "lightblue") + 
+  labs(x = "Year", 
+    y = "Total Number of Fish", 
+    title = "Change in Backreef Corallivore Abundance (2006-2025)")
+
+corallivore_plot
+```
+
+
+```{r, echo = FALSE}
 knitr::include_graphics("DAG.png")
 ```
 The three predictor variables that will be included in this model are LTER site, year, and mean coral cover of transects within a site. The site and year should determine the coral cover which in turn should determine the response; proportion corallivore in the fish community. 
