@@ -206,9 +206,9 @@ All values were significant and extremely close to the originally assigned numbe
 
 ## Inference
 
-Alternative Hypothesis: There is a positive effect between mean site coral cover and proportion corallivore in the backreef fish community. 
+Alternative Hypothesis: There is a positive relationship between mean site coral cover and proportion corallivore in the backreef fish community. 
 
-Null Hypothesis : There is no effect of mean site coral cover on proportion corallivore in the backreef fish community.  
+Null Hypothesis : There is no relationship between mean site coral cover and proportion corallivore in the backreef fish community.  
 
 First, processing data to create a dataframe which contains the corallivore proportion at each LTER backreef site each year, and the mean coral cover of monitored transects at each LTER backreef site, each year. 
 
@@ -223,7 +223,10 @@ coral_cover <- coral_cover |>
   group_by(year, site) |> 
   summarise(mean_site_coral_cover = mean(percent_cover)) 
 
-full_data_frame <- left_join(coral_cover, corallivore, join_by(year, site))
+full_data_frame <- left_join(coral_cover, corallivore, join_by(year, site)) 
+
+full_data_frame <- full_data_frame |> 
+  filter(year != 2005)
 ```
 
 Plot relationship
@@ -250,6 +253,7 @@ ggplot(full_data_frame,
        color = "Year")
 ```
 
+
 ```{r}
 # Fit beta regression model to data using glmmTMB()
 
@@ -257,51 +261,51 @@ corallivore_model <- glmmTMB(proportion_corallivore ~ mean_site_coral_cover + si
   data = full_data_frame,
   family = beta_family(link = "logit"))
 
-corallivore_model_summary <- summary(corallivore_model)
+summary(corallivore_model)
+
 ```
 
 ```{r}
-# Generate predicted values of corallivore proportion using model 
+# Create grid of with percentage values of coral cover from 0 to 1. Reference year is 2006, reference site is LTER 1
 
 pred_grid <- expand_grid(mean_site_coral_cover = seq(0,1, by = 0.01)) |> 
   mutate(site = "LTER_1", 
     year  = 2006)
 
-pred_grid <- pred_grid |> 
-mutate(proportion_corallivore = predict(object = corallivore_model, 
-                            newdata = pred_grid, 
-                            type = "response"))
-```
+# Make predictions with corallivore model along with standard error of each response value
 
+pred_se <- predict(
+  corallivore_model,
+  newdata = pred_grid,
+  type = "response",
+  se.fit = TRUE
+)
 
-```{r}
-# Generate Confidence Interval
+# Combine predictions with upper/lower bounds of confidence intervals
 
-B0 = corallivore_model_summary$coefficients$cond[1]
-B1 = corallivore_model_summary$coefficients$cond[2]
+prediction_final <- pred_grid |> 
+  mutate(
+    fit = pred_se$fit,
+    se = pred_se$se.fit,
+    lower = fit - 1.96 * se,
+    upper = fit + 1.96 * se
+  )
 
-se_intercept <- corallivore_model_summary$coefficients$cond[5]
-se_mean_site_coral_cover <- corallivore_model_summary$coefficients$cond[6]
+# Plot expected response of model and CIs
 
-B0_upper= B0+1.96*se_intercept
-B0_lower=B0-1.96*se_intercept
+ggplot(prediction_final, aes(x = mean_site_coral_cover, y = fit)) +
+  geom_line(colour = "lightblue") +
+  geom_ribbon(aes(ymin = lower, ymax = upper),
+              fill = "lightblue", alpha = 0.2) +
+  scale_y_continuous(limits = c(0, 0.10),   # y‑axis from 0 to 0.10
+                     expand = expansion(mult = c(0, 0.05))) +
+  labs(
+    x = "Mean site coral cover",
+    y = "Proportion corallivore"
+  ) +
+  theme_minimal()
 
-B1_upper= B1+1.96*se_mean_site_coral_cover
-B1_lower=B1-1.96*se_mean_site_coral_cover
-
-```
-
-```{r}
-# Plot betaregression with CIs
-
-ggplot(pred_grid, 
-       aes(x = mean_site_coral_cover, 
-           y = proportion_corallivore)) + 
-  geom_line(color = "lightblue") + 
-  labs(x = "Mean Site Coral Cover", 
-       y = "Proportion Corallivore") 
-   # geom_ribbon(aes(ymin = lower_ci, ymax = upper_ci), alpha = 0.2)
 ```
 **A hypothesis is tested and the evidence is interpreted**
-The coefficients obtained from a beta regression model represent the change in the log-odds of the response variable for a one-unit change in the predictor variable.
 
+The coefficients obtained from the beta regression model represent the change in the log-proportion of the response variable for a one-unit change in the predictor variable. In other words, for every one percent increase in mean site coral cover, we would expect the proportion of corallivore in the fish community to increase by 0.008127. The coefficients for mean site coral cover, year , and all sites were significant. We can successfully reject the null hypothesis. Our data is consistent with the alternative hypothesis that there is a positive relationship between mean site coral cover and proportion corallivore in the backreef fish community. However, under the modeled conditions, even when coral cover reaches 100%, the expected proportion corallivore only reaches 0.05447391 which is not a huge leap from the value when coral cover is at 0: 0.05405681. 
